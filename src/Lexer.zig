@@ -69,15 +69,15 @@ pub fn identifier(self: *Lexer) Token {
     }
     self.cur -= 1;
     var ident = self.src[self.start..self.cur];
-    std.debug.print("{s}", .{ident});
-    return if (std.mem.eql(u8, ident, "class"))
-        .class
-    else if (std.mem.eql(u8, ident, "static"))
-        .static
-    else if (std.mem.eql(u8, ident, "void"))
-        .void
-    else
-        .{ .identifier = ident };
+
+    // TODO: replace with a hashmap or-so...
+    inline for (.{ .class, .static, .void }) |kw| {
+        if (std.mem.eql(u8, ident, @tagName(kw))) {
+            return kw;
+        }
+    }
+
+    return .{ .identifier = ident };
 }
 
 pub fn eat(self: *Lexer) u8 {
