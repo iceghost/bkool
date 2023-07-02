@@ -22,13 +22,17 @@ pub const Token = union(enum) {
 pub const TokenTag = std.meta.Tag(Token);
 
 pub fn next(self: *Lexer) Token {
-    self.start = self.cur;
-    while (std.ascii.isWhitespace(self.eat())) {}
-    // only backtrack if some whitespace was consumed
-    if (self.cur != self.start)
-        self.cur -= 1; // backtrack one step
+    var cur_c: u8 = undefined;
+    while (true) {
+        cur_c = self.eat();
+        if (std.ascii.isWhitespace(cur_c)) {
+            continue;
+        }
+        break;
+    }
 
-    return switch (self.eat()) {
+    self.start = self.cur - 1;
+    return switch (cur_c) {
         0 => .eof,
         '{' => .left_brace,
         '}' => .right_brace,
@@ -41,18 +45,39 @@ pub fn next(self: *Lexer) Token {
         else if (std.ascii.isAlphabetic(c) or c == '_')
             self.identifier()
         else
-            std.debug.panic("not implemented yet...: '{c}'", .{c}),
+            std.debug.panic("not implemented yet...: '{c}' at {}", .{ c, self.cur }),
     };
 }
 
 pub fn number(self: *Lexer) Token {
-    _ = self;
-    unreachable;
+    while (std.ascii.isDigit(self.eat())) {}
+    self.cur -= 1;
+    const int = std.fmt.parseInt(i32, self.src[self.start..self.cur], 0) catch |err| switch (err) {
+        error.Overflow => std.debug.panic("integer overflow: '{s}'", .{self.src[self.start..self.cur]}),
+        else => unreachable,
+    };
+    return .{ .integer = int };
 }
 
 pub fn identifier(self: *Lexer) Token {
-    _ = self;
-    unreachable;
+    while (true) {
+        var c = self.eat();
+        if (std.ascii.isAlphanumeric(c) or c == '_') {
+            continue;
+        }
+        break;
+    }
+    self.cur -= 1;
+    var ident = self.src[self.start..self.cur];
+    std.debug.print("{s}", .{ident});
+    return if (std.mem.eql(u8, ident, "class"))
+        .class
+    else if (std.mem.eql(u8, ident, "static"))
+        .static
+    else if (std.mem.eql(u8, ident, "void"))
+        .void
+    else
+        .{ .identifier = ident };
 }
 
 pub fn eat(self: *Lexer) u8 {
@@ -95,8 +120,13 @@ test "simple program?" {
         \\    }      
         \\}
     ;
-    const expected = .{
+    var lexer = Lexer{ .src = raw };
+    const expecteds: []const TokenTag = &[_]TokenTag{
         .class,
+        .identifier,
+        .left_brace,
+        .static,
+        .void,
         .identifier,
         .left_paren,
         .right_paren,
@@ -111,6 +141,9 @@ test "simple program?" {
         .right_brace,
         .right_brace,
     };
-    _ = expected;
-    _ = raw;
+    for (expecteds) |expected| {
+        const got = lexer.next();
+        try std.testing.expectEqual(expected, got);
+    }
+    try std.testing.expectEqual(@as(TokenTag, .eof), lexer.next());
 }
