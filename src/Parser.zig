@@ -13,7 +13,7 @@ const Error = error{
     UnexpectedToken,
 };
 
-pub fn init(src: []const u8, allocator: std.mem.Allocator) Parser {
+pub fn parse(src: []const u8, allocator: std.mem.Allocator) Error!*ast.Program {
     var parser = Parser{
         .lexer = Lexer{ .src = src },
         .current = undefined,
@@ -21,7 +21,7 @@ pub fn init(src: []const u8, allocator: std.mem.Allocator) Parser {
         .allocator = allocator,
     };
     parser.next = parser.lexer.next();
-    return parser;
+    return try parser.parseProgram();
 }
 
 fn parseProgram(self: *Parser) Error!*ast.Program {
@@ -124,8 +124,7 @@ test "simple program" {
         \\    }
         \\}
     ;
-    var parser = Parser.init(raw, allocator);
-    var program = try parser.parseProgram();
+    var program = try parse(raw, allocator);
 
     var buf: [1024]u8 = undefined;
     var stream = std.io.fixedBufferStream(&buf);
