@@ -17,15 +17,19 @@ pub const Token = union(enum) {
     void,
     identifier: []const u8,
     integer: i32,
+    eof,
 };
 pub const TokenTag = std.meta.Tag(Token);
 
 pub fn next(self: *Lexer) Token {
     self.start = self.cur;
     while (std.ascii.isWhitespace(self.eat())) {}
-    self.cur -= 1; // backtrack one step
+    // only backtrack if some whitespace was consumed
+    if (self.cur != self.start)
+        self.cur -= 1; // backtrack one step
 
     return switch (self.eat()) {
+        0 => .eof,
         '{' => .left_brace,
         '}' => .right_brace,
         '(' => .left_paren,
@@ -79,6 +83,7 @@ test "all symbols" {
         const got = lexer.next();
         try std.testing.expectEqual(expected, got);
     }
+    try std.testing.expectEqual(@as(TokenTag, .eof), lexer.next());
 }
 
 test "simple program?" {
