@@ -2,6 +2,7 @@ const std = @import("std");
 const Self = @This();
 const ast = @import("./ast.zig");
 const mips = @import("./mips.zig");
+const List = @import("List.zig");
 
 allocator: std.mem.Allocator,
 
@@ -26,28 +27,26 @@ fn selectMethod(self: Self, method: *const ast.Method) Error!*mips.Program {
 }
 
 fn selectStmt(self: Self, stmt: *const ast.Stmt) Error!*mips.Instr {
-    var ret: *mips.Instr = undefined;
-    var instr: *mips.Instr = undefined;
+    var instrs: [2]*mips.Instr = undefined;
     switch (stmt.kind) {
         .call => |call| {
-            instr = try self.allocator.create(mips.Instr);
-            instr.kind = .{
+            instrs[0] = try self.allocator.create(mips.Instr);
+            instrs[0].kind = .{
                 .li = .{
                     .{ .reg = mips.Reg.A0 },
                     .{ .imm = call.args.kind.integer },
                 },
             };
-            instr.next = try self.allocator.create(mips.Instr);
-            ret = instr;
+            instrs[0].node = .{};
 
-            instr = instr.next.?;
-            instr.kind = .{
+            instrs[1] = try self.allocator.create(mips.Instr);
+            instrs[1].kind = .{
                 .jal = try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ call.obj, call.method }),
             };
-            instr.next = null;
+            List.insertNext(&instrs[0].node, &instrs[1].node);
         },
     }
-    return ret;
+    return instrs[0];
 }
 
 const Parser = @import("./Parser.zig");

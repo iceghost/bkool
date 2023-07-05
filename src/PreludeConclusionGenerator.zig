@@ -1,18 +1,26 @@
 const std = @import("std");
 const mips = @import("./mips.zig");
+const List = @import("List.zig");
 
 pub fn generate(allocator: std.mem.Allocator, prog: *mips.Program) !void {
     var instr = try allocator.create(mips.Instr);
     instr.kind = .{ .label = "main" };
-    instr.next = prog.instrs;
+    List.insertPrev(&prog.instrs.node, &instr.node);
     prog.instrs = instr;
 
-    while (instr.next) |next| : (instr = next) {}
+    // get last instruction
+    var last_instr = blk: {
+        var node: *List.Node = undefined;
+        var it = List.iterator(&prog.instrs.node);
+        while (it.next()) |n| {
+            node = n;
+        }
+        break :blk @fieldParentPtr(mips.Instr, "node", node);
+    };
 
-    instr.next = try allocator.create(mips.Instr);
-    instr = instr.next.?;
+    instr = try allocator.create(mips.Instr);
     instr.kind = .{ .jal = "exit" };
-    instr.next = null;
+    List.insertNext(&last_instr.node, &instr.node);
 }
 
 const Parser = @import("./Parser.zig");

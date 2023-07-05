@@ -1,7 +1,8 @@
 const std = @import("std");
+const List = @import("List.zig");
 
 pub const Program = struct {
-    instrs: ?*Instr,
+    instrs: *Instr,
 };
 
 pub const Instr = struct {
@@ -9,8 +10,10 @@ pub const Instr = struct {
         label: []const u8,
         li: [2]Arg,
         jal: []const u8,
+        noop,
     },
-    next: ?*Instr,
+
+    node: List.Node,
 };
 
 pub const Arg = union(enum) {
@@ -23,8 +26,9 @@ pub const Reg = enum {
 };
 
 pub fn print(writer: anytype, prog: *const Program) !void {
-    var ninstr = prog.instrs;
-    while (ninstr) |instr| : (ninstr = instr.next) {
+    var iter = List.iterator(&prog.instrs.node);
+    while (iter.next()) |n| {
+        var instr = @fieldParentPtr(Instr, "node", n);
         try printInstr(writer, instr);
     }
 }
@@ -40,6 +44,7 @@ fn printInstr(writer: anytype, instr: *const Instr) !void {
             try writer.print("\n", .{});
         },
         .jal => |label| try writer.print(" " ** 4 ++ "jal {s}\n", .{label}),
+        .noop => {},
     }
 }
 
