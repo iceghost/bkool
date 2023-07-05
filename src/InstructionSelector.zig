@@ -20,7 +20,7 @@ fn selectClass(self: Self, class: *const ast.Class) Error!*mips.Program {
 }
 
 fn selectMethod(self: Self, method: *const ast.Method) Error!*mips.Program {
-    var instrs = try self.selectStmt(method.body.?);
+    var instrs = try self.selectStmt(method.body);
     var program = try self.allocator.create(mips.Program);
     program.instrs = instrs;
     return program;
@@ -45,6 +45,7 @@ fn selectStmt(self: Self, stmt: *const ast.Stmt) Error!*mips.Instr {
             };
             List.insertNext(&instrs[0].node, &instrs[1].node);
         },
+        .noop => {},
     }
     return instrs[0];
 }

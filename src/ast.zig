@@ -1,4 +1,5 @@
 const std = @import("std");
+const List = @import("List.zig");
 
 pub const Program = struct {
     class: *Class,
@@ -11,14 +12,15 @@ pub const Class = struct {
 
 pub const Method = struct {
     name: []const u8,
-    body: ?*Stmt,
+    body: *Stmt,
 };
 
 pub const Stmt = struct {
     kind: union(enum) {
         call: *Expr.Call,
+        noop,
     },
-    next: ?*Stmt,
+    node: List.Node = .{},
 };
 
 pub const Expr = struct {
@@ -26,7 +28,7 @@ pub const Expr = struct {
         call: Call,
         integer: i32,
     },
-    next: ?*Expr,
+    node: List.Node = .{},
 
     pub const Call = struct {
         obj: []const u8,
@@ -46,9 +48,9 @@ fn printClass(writer: anytype, class: *const Class) !void {
 
 fn printMethod(writer: anytype, method: *const Method) !void {
     try writer.print(" " ** 4 ++ "method {s}\n", .{method.name});
-    var nstmt = method.body;
-    while (nstmt) |stmt| : (nstmt = stmt.next) {
-        try printStmt(writer, stmt);
+    var it = List.iterator(&method.body.node);
+    while (it.next()) |n| {
+        try printStmt(writer, @fieldParentPtr(Stmt, "node", n));
     }
 }
 
@@ -58,6 +60,7 @@ fn printStmt(writer: anytype, stmt: *const Stmt) !void {
             try writer.print(" " ** 8 ++ "{s}.{s} ", .{ call.obj, call.method });
             try printExpr(writer, call.args);
         },
+        .noop => {},
     }
 }
 

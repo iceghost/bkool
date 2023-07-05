@@ -2,6 +2,7 @@ const std = @import("std");
 const Lexer = @import("./Lexer.zig");
 const Parser = @This();
 const ast = @import("./ast.zig");
+const List = @import("List.zig");
 
 lexer: Lexer,
 current: Lexer.Token,
@@ -55,19 +56,28 @@ fn parseMethod(self: *Parser) Error!*ast.Method {
     try self.eatAndExpect(.right_paren);
     try self.eatAndExpect(.left_brace);
 
-    // fake head
-    var head = ast.Stmt{ .kind = undefined, .next = null };
-    var ptr: *ast.Stmt = &head;
-    while (self.next != .right_brace) {
-        ptr.next = try self.parseStmt();
-        ptr = ptr.next.?;
-    }
-    try self.eatAndExpect(.right_brace);
+    var body = blk: {
+        var head = try self.allocator.create(ast.Stmt);
+        head.kind = .noop;
+        head.node = .{};
+        var s: *ast.Stmt = head;
+        while (self.next != .right_brace) {
+            var next = try self.parseStmt();
+            List.insertNext(&s.node, &next.node);
+            s = next;
+        }
+        try self.eatAndExpect(.right_brace);
+        break :blk head;
+    };
 
     var method = try self.allocator.create(ast.Method);
     method.name = name;
-    // remove fake head
-    method.body = head.next;
+    // remove noop head, if possible
+    if (body.node.next) |next|
+        method.body = @fieldParentPtr(ast.Stmt, "node", next)
+    else
+        method.body = body;
+
     return method;
 }
 
@@ -82,7 +92,7 @@ fn parseStmt(self: *Parser) Error!*ast.Stmt {
     var int = self.current.integer;
     var arg = try self.allocator.create(ast.Expr);
     arg.kind = .{ .integer = int };
-    arg.next = null;
+    arg.node = .{};
     try self.eatAndExpect(.right_paren);
     try self.eatAndExpect(.semicolon);
 
@@ -92,11 +102,10 @@ fn parseStmt(self: *Parser) Error!*ast.Stmt {
         .method = method,
         .args = arg,
     } };
-    call.next = null;
+    call.node = .{};
 
     var stmt = try self.allocator.create(ast.Stmt);
     stmt.kind = .{ .call = &call.kind.call };
-    stmt.next = null;
 
     return stmt;
 }
