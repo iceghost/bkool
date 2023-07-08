@@ -12,11 +12,15 @@ pub const Token = union(enum) {
     right_paren,
     dot,
     semicolon,
-    class,
-    static,
-    void,
+    kw_class,
+    kw_static,
+    kw_void,
     identifier: []const u8,
     integer: i32,
+    kw_int,
+    equal,
+    colon_equal,
+    comma,
     eof,
 };
 pub const TokenTag = std.meta.Tag(Token);
@@ -40,6 +44,12 @@ pub fn next(self: *Lexer) Token {
         ')' => .right_paren,
         '.' => .dot,
         ';' => .semicolon,
+        ',' => .comma,
+        '=' => .equal,
+        ':' => switch (self.eat()) {
+            '=' => .colon_equal,
+            else => unreachable,
+        },
         else => |c| if (std.ascii.isDigit(c))
             self.number()
         else if (std.ascii.isAlphabetic(c) or c == '_')
@@ -71,8 +81,8 @@ pub fn identifier(self: *Lexer) Token {
     var ident = self.src[self.start..self.cur];
 
     // TODO: replace with a hashmap or-so...
-    inline for (.{ .class, .static, .void }) |kw| {
-        if (std.mem.eql(u8, ident, @tagName(kw))) {
+    inline for (.{ .kw_class, .kw_static, .kw_void, .kw_int }) |kw| {
+        if (std.mem.eql(u8, ident, @tagName(kw)[3..])) {
             return kw;
         }
     }
@@ -94,7 +104,7 @@ pub fn peek(self: *Lexer) u8 {
 }
 
 test "all symbols" {
-    const raw: []const u8 = "{ } ( ) . ;";
+    const raw: []const u8 = "{ } ( ) . ; :=";
     var lexer = Lexer{ .src = raw };
     const expecteds: []const TokenTag = &[_]TokenTag{
         .left_brace,
@@ -103,6 +113,7 @@ test "all symbols" {
         .right_paren,
         .dot,
         .semicolon,
+        .colon_equal,
     };
     for (expecteds) |expected| {
         const got = lexer.next();
@@ -122,11 +133,11 @@ test "simple program?" {
     ;
     var lexer = Lexer{ .src = raw };
     const expecteds: []const TokenTag = &[_]TokenTag{
-        .class,
+        .kw_class,
         .identifier,
         .left_brace,
-        .static,
-        .void,
+        .kw_static,
+        .kw_void,
         .identifier,
         .left_paren,
         .right_paren,
@@ -141,9 +152,67 @@ test "simple program?" {
         .right_brace,
         .right_brace,
     };
-    for (expecteds) |expected| {
-        const got = lexer.next();
-        try std.testing.expectEqual(expected, got);
+
+    var actual = try std.BoundedArray(TokenTag, 32).init(0);
+    while (true) {
+        var t = lexer.next();
+        if (t == .eof) break;
+        try actual.append(t);
     }
-    try std.testing.expectEqual(@as(TokenTag, .eof), lexer.next());
+
+    try std.testing.expectEqualSlices(TokenTag, expecteds, actual.slice());
+}
+
+test "simple variables" {
+
+    // checking the specs...
+    const raw: []const u8 =
+        \\class Main {
+        \\    static void main() {
+        \\        int a = 8, b;
+        \\        b := 2;
+        \\        io.writeInt(a);
+        \\    }      
+        \\}
+    ;
+    var lexer = Lexer{ .src = raw };
+    const expecteds: []const TokenTag = &[_]TokenTag{
+        .kw_class,
+        .identifier,
+        .left_brace,
+        .kw_static,
+        .kw_void,
+        .identifier,
+        .left_paren,
+        .right_paren,
+        .left_brace,
+        .kw_int,
+        .identifier,
+        .equal,
+        .integer,
+        .comma,
+        .identifier,
+        .semicolon,
+        .identifier,
+        .colon_equal,
+        .integer,
+        .semicolon,
+        .identifier,
+        .dot,
+        .identifier,
+        .left_paren,
+        .identifier,
+        .right_paren,
+        .semicolon,
+        .right_brace,
+        .right_brace,
+    };
+    var actual = try std.BoundedArray(TokenTag, 32).init(0);
+    while (true) {
+        var t = lexer.next();
+        if (t == .eof) break;
+        try actual.append(t);
+    }
+
+    try std.testing.expectEqualSlices(TokenTag, expecteds, actual.slice());
 }
