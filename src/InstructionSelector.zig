@@ -8,46 +8,49 @@ allocator: std.mem.Allocator,
 
 const Error = error{OutOfMemory};
 
-pub fn select(allocator: std.mem.Allocator, program: *const ast.Program) Error!*mips.Program {
+pub fn select(allocator: std.mem.Allocator, program: *ast.Program) Error!*mips.Program {
     var self = Self{
         .allocator = allocator,
     };
     return try self.selectClass(program.class);
 }
 
-fn selectClass(self: Self, class: *const ast.Class) Error!*mips.Program {
+fn selectClass(self: Self, class: *ast.Class) Error!*mips.Program {
     return try self.selectMethod(class.method);
 }
 
-fn selectMethod(self: Self, method: *const ast.Method) Error!*mips.Program {
-    var instrs = try self.selectStmt(method.body);
+fn selectMethod(self: Self, method: *ast.Method) Error!*mips.Program {
     var program = try self.allocator.create(mips.Program);
-    program.instrs = instrs;
+    program.instrs.init();
+
+    var it = method.body.iterator();
+    while (it.next()) |s| {
+        try self.selectStmt(s, &program.instrs);
+    }
     return program;
 }
 
-fn selectStmt(self: Self, stmt: *const ast.Stmt) Error!*mips.Instr {
-    var instrs: [2]*mips.Instr = undefined;
+fn selectStmt(self: Self, stmt: *ast.Stmt, instrs: *mips.Instr.Head) Error!void {
+    var instr: *mips.Instr = undefined;
     switch (stmt.kind) {
         .call => |call| {
-            instrs[0] = try self.allocator.create(mips.Instr);
-            instrs[0].kind = .{
+            instr = try self.allocator.create(mips.Instr);
+            instr.kind = .{
                 .li = .{
                     .{ .reg = mips.Reg.A0 },
                     .{ .imm = call.args.kind.integer },
                 },
             };
-            instrs[0].node = .{};
+            List.insertPrev(&instrs.node, &instr.node);
 
-            instrs[1] = try self.allocator.create(mips.Instr);
-            instrs[1].kind = .{
+            instr = try self.allocator.create(mips.Instr);
+            instr.kind = .{
                 .jal = try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ call.obj, call.method }),
             };
-            List.insertNext(&instrs[0].node, &instrs[1].node);
+            List.insertPrev(&instrs.node, &instr.node);
         },
         .noop => {},
     }
-    return instrs[0];
 }
 
 const Parser = @import("./Parser.zig");

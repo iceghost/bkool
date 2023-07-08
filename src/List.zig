@@ -1,40 +1,65 @@
+//! A circular doubly linked list
+
+const std = @import("std");
+
 pub const Node = struct {
-    prev: ?*Node = null,
-    next: ?*Node = null,
-};
-
-pub fn iterator(node: *Node) Iterator {
-    return .{ .cur = node };
-}
-
-pub const Iterator = struct {
-    cur: ?*Node,
-
-    pub fn next(self: *Iterator) ?*Node {
-        const cur = self.cur orelse return null;
-        self.cur = cur.next;
-        return cur;
-    }
+    prev: *Node = undefined,
+    next: *Node = undefined,
 };
 
 pub fn insertNext(node: *Node, next: *Node) void {
-    if (node.next) |old_next| {
-        next.next = old_next;
-        old_next.prev = next;
-    } else {
-        next.next = null;
-    }
+    next.next = node.next;
+    node.next.prev = next;
     node.next = next;
     next.prev = node;
 }
 
 pub fn insertPrev(node: *Node, prev: *Node) void {
-    if (node.prev) |old_prev| {
-        old_prev.next = prev;
-        prev.prev = old_prev;
-    } else {
-        prev.prev = null;
-    }
+    prev.prev = node.prev;
+    node.prev.next = prev;
     node.prev = prev;
     prev.next = node;
+}
+
+pub fn isEmpty(node: *Node) bool {
+    if (node.prev != node) return false;
+    std.debug.assert(node.next == node);
+    return true;
+}
+
+/// Head of a list.
+///
+/// This is allowed to make iterating over list easier and less verbose.
+///
+/// XXX Beware that you can't do `@fieldParentPtr` on a node.
+pub fn Head(comptime T: type, comptime field_name: []const u8) type {
+    return struct {
+        const Self = @This();
+
+        node: Node = undefined,
+
+        pub fn init(self: *Self) void {
+            self.node.next = &self.node;
+            self.node.prev = &self.node;
+        }
+
+        pub fn iterator(self: *Self) Iterator {
+            return .{
+                .head = &self.node,
+                .current = self.node.next,
+            };
+        }
+
+        pub const Iterator = struct {
+            head: *Node,
+            current: *Node,
+
+            pub fn next(self: *Iterator) ?*T {
+                if (self.current == self.head) return null;
+                var n = self.current;
+                self.current = self.current.next;
+                return @fieldParentPtr(T, field_name, n);
+            }
+        };
+    };
 }

@@ -56,27 +56,15 @@ fn parseMethod(self: *Parser) Error!*ast.Method {
     try self.eatAndExpect(.right_paren);
     try self.eatAndExpect(.left_brace);
 
-    var body = blk: {
-        var head = try self.allocator.create(ast.Stmt);
-        head.kind = .noop;
-        head.node = .{};
-        var s: *ast.Stmt = head;
-        while (self.next != .right_brace) {
-            var next = try self.parseStmt();
-            List.insertNext(&s.node, &next.node);
-            s = next;
-        }
-        try self.eatAndExpect(.right_brace);
-        break :blk head;
-    };
-
     var method = try self.allocator.create(ast.Method);
     method.name = name;
-    // remove noop head, if possible
-    if (body.node.next) |next|
-        method.body = @fieldParentPtr(ast.Stmt, "node", next)
-    else
-        method.body = body;
+    method.body.init();
+
+    while (self.next != .right_brace) {
+        var next = try self.parseStmt();
+        List.insertPrev(&method.body.node, &next.node);
+    }
+    try self.eatAndExpect(.right_brace);
 
     return method;
 }

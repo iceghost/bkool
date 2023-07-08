@@ -12,7 +12,7 @@ pub const Class = struct {
 
 pub const Method = struct {
     name: []const u8,
-    body: *Stmt,
+    body: Stmt.Head,
 };
 
 pub const Stmt = struct {
@@ -20,7 +20,9 @@ pub const Stmt = struct {
         call: *Expr.Call,
         noop,
     },
+
     node: List.Node = .{},
+    pub const Head = List.Head(Stmt, "node");
 };
 
 pub const Expr = struct {
@@ -37,24 +39,24 @@ pub const Expr = struct {
     };
 };
 
-pub fn print(writer: anytype, program: *const Program) !void {
+pub fn print(writer: anytype, program: *Program) !void {
     try printClass(writer, program.class);
 }
 
-fn printClass(writer: anytype, class: *const Class) !void {
+fn printClass(writer: anytype, class: *Class) !void {
     try writer.print("class {s}\n", .{class.name});
     try printMethod(writer, class.method);
 }
 
-fn printMethod(writer: anytype, method: *const Method) !void {
+fn printMethod(writer: anytype, method: *Method) !void {
     try writer.print(" " ** 4 ++ "method {s}\n", .{method.name});
-    var it = List.iterator(&method.body.node);
-    while (it.next()) |n| {
-        try printStmt(writer, @fieldParentPtr(Stmt, "node", n));
+    var it = method.body.iterator();
+    while (it.next()) |s| {
+        try printStmt(writer, s);
     }
 }
 
-fn printStmt(writer: anytype, stmt: *const Stmt) !void {
+fn printStmt(writer: anytype, stmt: *Stmt) !void {
     switch (stmt.kind) {
         .call => |call| {
             try writer.print(" " ** 8 ++ "{s}.{s} ", .{ call.obj, call.method });
@@ -64,7 +66,7 @@ fn printStmt(writer: anytype, stmt: *const Stmt) !void {
     }
 }
 
-fn printExpr(writer: anytype, expr: *const Expr) !void {
+fn printExpr(writer: anytype, expr: *Expr) !void {
     switch (expr.kind) {
         .call => |call| {
             try writer.print("({s}.{s} ", .{ call.obj, call.method });

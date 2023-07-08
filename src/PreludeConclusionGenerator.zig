@@ -5,22 +5,11 @@ const List = @import("List.zig");
 pub fn generate(allocator: std.mem.Allocator, prog: *mips.Program) !void {
     var instr = try allocator.create(mips.Instr);
     instr.kind = .{ .label = "main" };
-    List.insertPrev(&prog.instrs.node, &instr.node);
-    prog.instrs = instr;
-
-    // get last instruction
-    var last_instr = blk: {
-        var node: *List.Node = undefined;
-        var it = List.iterator(&prog.instrs.node);
-        while (it.next()) |n| {
-            node = n;
-        }
-        break :blk @fieldParentPtr(mips.Instr, "node", node);
-    };
+    List.insertNext(&prog.instrs.node, &instr.node);
 
     instr = try allocator.create(mips.Instr);
     instr.kind = .{ .jal = "exit" };
-    List.insertNext(&last_instr.node, &instr.node);
+    List.insertPrev(&prog.instrs.node, &instr.node);
 }
 
 const Parser = @import("./Parser.zig");
