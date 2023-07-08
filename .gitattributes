@@ -3,3 +3,5 @@
 bin/** binary
 *.bkool linguist-language=Java
 
+# zig fmt force lf
+*.zig text eol=lf
