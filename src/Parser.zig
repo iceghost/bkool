@@ -12,6 +12,7 @@ allocator: std.mem.Allocator,
 const Error = error{
     OutOfMemory,
     UnexpectedToken,
+    NonAssociative,
 };
 
 pub fn parse(src: []const u8, allocator: std.mem.Allocator) Error!*ast.Program {
@@ -33,7 +34,7 @@ fn parseProgram(self: *Parser) Error!*ast.Program {
 }
 
 fn parseClass(self: *Parser) Error!*ast.Class {
-    try self.eatAndExpect(.class);
+    try self.eatAndExpect(.kw_class);
     try self.eatAndExpect(.identifier);
     var name = self.current.identifier;
     try self.eatAndExpect(.left_brace);
@@ -47,8 +48,8 @@ fn parseClass(self: *Parser) Error!*ast.Class {
 }
 
 fn parseMethod(self: *Parser) Error!*ast.Method {
-    try self.eatAndExpect(.static);
-    try self.eatAndExpect(.void);
+    try self.eatAndExpect(.kw_static);
+    try self.eatAndExpect(.kw_void);
     try self.eatAndExpect(.identifier);
     var name = self.current.identifier;
     try self.eatAndExpect(.left_paren);
@@ -61,41 +62,178 @@ fn parseMethod(self: *Parser) Error!*ast.Method {
     method.body.init();
 
     while (self.next != .right_brace) {
-        var next = try self.parseStmt();
-        List.insertPrev(&method.body.node, &next.node);
+        try self.parseStmt(&method.body);
     }
     try self.eatAndExpect(.right_brace);
 
     return method;
 }
 
-fn parseStmt(self: *Parser) Error!*ast.Stmt {
-    try self.eatAndExpect(.identifier);
-    const obj = self.current.identifier;
-    try self.eatAndExpect(.dot);
-    try self.eatAndExpect(.identifier);
-    const method = self.current.identifier;
-    try self.eatAndExpect(.left_paren);
-    try self.eatAndExpect(.integer);
-    var int = self.current.integer;
-    var arg = try self.allocator.create(ast.Expr);
-    arg.kind = .{ .integer = int };
-    arg.node = .{};
-    try self.eatAndExpect(.right_paren);
+fn parseStmt(self: *Parser, stmts: *ast.Stmt.Head) Error!void {
+    var stmt: *ast.Stmt = undefined;
+
+    switch (self.next) {
+        // declarations
+        .kw_int => return try self.parseVarDecl(stmts),
+        else => {},
+    }
+
+    var expr = try self.parseExpr();
+    switch (self.next) {
+        .colon_equal => {
+            self.eat();
+            var rhs = try self.parseExpr();
+            stmt = try self.allocator.create(ast.Stmt);
+            stmt.kind = .{ .assign = .{ .lhs = expr, .rhs = rhs } };
+        },
+        .semicolon => switch (expr.kind) {
+            .call => |*call| {
+                stmt = try self.allocator.create(ast.Stmt);
+                stmt.kind = .{ .call = call };
+            },
+            else => std.debug.panic("only call exprs can be statements", .{}),
+        },
+        else => return error.UnexpectedToken,
+    }
     try self.eatAndExpect(.semicolon);
+    List.insertPrev(&stmts.node, &stmt.node);
+}
 
+fn parseVarDecl(self: *Parser, stmts: *ast.Stmt.Head) Error!void {
+    try self.eatAndExpect(.kw_int);
+    while (true) {
+        try self.eatAndExpect(.identifier);
+        var name = self.current.identifier;
+        var initializer: ?*ast.Expr = null;
+
+        if (self.next == .equal) {
+            self.eat();
+            initializer = try self.parseExpr();
+        }
+
+        var stmt = try self.allocator.create(ast.Stmt);
+        stmt.kind = .{ .var_decl = .{ .name = name, .initializer = initializer } };
+        List.insertPrev(&stmts.node, &stmt.node);
+
+        if (self.next == .semicolon)
+            return try self.eatAndExpect(.semicolon)
+        else
+            try self.eatAndExpect(.comma);
+    }
+
+    try self.eatAndExpect(.semicolon);
+}
+
+fn parseExpr(self: *Parser) Error!*ast.Expr {
+    return try parseExprHelp(self, 0);
+}
+
+fn parseExprHelp(self: *Parser, left_bp: u8) Error!*ast.Expr {
+    var expr: *ast.Expr = undefined;
+
+    if (PRATT.PREFIX.get(self.next)) |e| {
+        expr = try e.parse_fn(self, undefined, e.right_bp);
+    } else return error.UnexpectedToken;
+
+    loop: while (true) {
+        inline for (.{ PRATT.INFIX, PRATT.POSTFIX }) |table|
+            if (table.get(self.next)) |e| {
+                if (left_bp == e.left_bp)
+                    return error.NonAssociative;
+                if (left_bp > e.left_bp)
+                    break :loop;
+
+                expr = try e.parse_fn(self, expr, e.right_bp);
+
+                continue :loop;
+            };
+
+        break;
+    }
+
+    return expr;
+}
+
+const PRATT = blk: {
+    var p = Pratt{};
+    p.add(&p.POSTFIX, .dot, parseField, .n);
+    p.bump();
+    p.add(&p.PREFIX, .identifier, parseVariable, .n);
+    p.add(&p.PREFIX, .integer, parseInteger, .n);
+    break :blk p;
+};
+
+const Pratt = struct {
+    const ParseFn = *const fn (*Parser, *ast.Expr, u8) Error!*ast.Expr;
+    const Map = std.EnumMap(Lexer.TokenTag, Entry);
+    const Entry = struct {
+        parse_fn: ParseFn,
+        left_bp: u8,
+        right_bp: u8,
+    };
+
+    INFIX: Map = .{},
+    PREFIX: Map = .{},
+    POSTFIX: Map = .{},
+
+    bp: u8 = 1,
+
+    pub fn add(self: *Pratt, comptime m: *Map, t: Lexer.TokenTag, comptime p_fn: ParseFn, ass: enum { l, n, r }) void {
+        switch (ass) {
+            .l => m.put(t, .{ .parse_fn = p_fn, .left_bp = self.bp, .right_bp = self.bp + 1 }),
+            .n => m.put(t, .{ .parse_fn = p_fn, .left_bp = self.bp, .right_bp = self.bp }),
+            .r => m.put(t, .{ .parse_fn = p_fn, .left_bp = self.bp + 1, .right_bp = self.bp }),
+        }
+    }
+
+    pub fn bump(self: *Pratt) void {
+        self.bp += 2;
+    }
+};
+
+fn parseField(self: *Parser, receiver: *ast.Expr, _: u8) Error!*ast.Expr {
+    self.eatAndExpect(.dot) catch unreachable;
+    try self.eatAndExpect(.identifier);
+    var field = self.current.identifier;
+
+    if (self.next == .left_paren)
+        return try self.parseCall(receiver, field);
+
+    std.debug.panic("no field yet", .{});
+}
+
+fn parseCall(self: *Parser, receiver: *ast.Expr, method: []const u8) Error!*ast.Expr {
     var call = try self.allocator.create(ast.Expr);
-    call.kind = .{ .call = .{
-        .obj = obj,
-        .method = method,
-        .args = arg,
-    } };
-    call.node = .{};
+    call.kind = .{ .call = .{ .receiver = receiver, .method = method, .args = undefined } };
+    call.kind.call.args.init();
+    self.eatAndExpect(.left_paren) catch unreachable;
+    while (self.next != .right_paren) {
+        var a = try self.parseExpr();
+        List.insertPrev(&call.kind.call.args.node, &a.node);
+        switch (self.next) {
+            .comma => self.eat(),
+            .right_paren => break,
+            else => return error.UnexpectedToken,
+        }
+    }
+    try self.eatAndExpect(.right_paren);
+    return call;
+}
 
-    var stmt = try self.allocator.create(ast.Stmt);
-    stmt.kind = .{ .call = &call.kind.call };
+fn parseVariable(self: *Parser, _: *ast.Expr, _: u8) Error!*ast.Expr {
+    self.eatAndExpect(.identifier) catch unreachable;
+    var name = self.current.identifier;
+    var expr = try self.allocator.create(ast.Expr);
+    expr.kind = .{ .variable = name };
+    return expr;
+}
 
-    return stmt;
+fn parseInteger(self: *Parser, _: *ast.Expr, _: u8) Error!*ast.Expr {
+    self.eatAndExpect(.integer) catch unreachable;
+    var int = self.current.integer;
+    var expr = try self.allocator.create(ast.Expr);
+    expr.kind = .{ .integer = int };
+    return expr;
 }
 
 fn eat(self: *Parser) void {
@@ -131,5 +269,37 @@ test "simple program" {
         \\class Main
         \\    method main
         \\        io.writeInt 1
+        \\
+    , stream.getWritten());
+}
+
+test "simple variables" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    var allocator = arena.allocator();
+
+    const raw: []const u8 =
+        \\class Main {
+        \\    static void main() {
+        \\        int a = 8, b;
+        \\        b := 2;
+        \\        io.writeInt(a);
+        \\    }      
+        \\}
+    ;
+    var program = try parse(raw, allocator);
+
+    var buf: [1024]u8 = undefined;
+    var stream = std.io.fixedBufferStream(&buf);
+    try ast.print(stream.writer(), program);
+
+    try std.testing.expectEqualStrings(
+        \\class Main
+        \\    method main
+        \\        a: int = 8
+        \\        b: int
+        \\        b := 2
+        \\        io.writeInt a
+        \\
     , stream.getWritten());
 }

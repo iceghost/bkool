@@ -18,24 +18,42 @@ pub const Method = struct {
 pub const Stmt = struct {
     kind: union(enum) {
         call: *Expr.Call,
-        noop,
+        var_decl: VarDecl,
+        assign: Assign,
     },
 
     node: List.Node = .{},
     pub const Head = List.Head(Stmt, "node");
+
+    pub const VarDecl = struct {
+        name: []const u8,
+        initializer: ?*Expr,
+    };
+
+    pub const Assign = struct {
+        lhs: *Expr,
+        rhs: *Expr,
+    };
 };
 
 pub const Expr = struct {
     kind: union(enum) {
         call: Call,
         integer: i32,
+        variable: []const u8,
     },
     node: List.Node = .{},
+    const Head = List.Head(Expr, "node");
 
     pub const Call = struct {
-        obj: []const u8,
+        receiver: *Expr,
         method: []const u8,
-        args: *Expr,
+        args: Expr.Head,
+    };
+
+    pub const Field = struct {
+        receiver: *Expr,
+        field: []const u8,
     };
 };
 
@@ -53,27 +71,56 @@ fn printMethod(writer: anytype, method: *Method) !void {
     var it = method.body.iterator();
     while (it.next()) |s| {
         try printStmt(writer, s);
+        try writer.print("\n", .{});
     }
 }
 
 fn printStmt(writer: anytype, stmt: *Stmt) !void {
     switch (stmt.kind) {
         .call => |call| {
-            try writer.print(" " ** 8 ++ "{s}.{s} ", .{ call.obj, call.method });
-            try printExpr(writer, call.args);
+            try writer.print(" " ** 8, .{});
+            try printExpr(writer, call.receiver);
+            try writer.print(".{s}", .{call.method});
+            var it = call.args.iterator();
+            while (it.next()) |a| {
+                try writer.print(" ", .{});
+                try printExpr(writer, a);
+            }
         },
-        .noop => {},
+        .var_decl => |var_decl| {
+            try writer.print(" " ** 8 ++ "{s}: int", .{var_decl.name});
+            if (var_decl.initializer) |init| {
+                try writer.print(" = ", .{});
+                try printExpr(writer, init);
+            }
+        },
+        .assign => |assign| {
+            try writer.print(" " ** 8, .{});
+            try printExpr(writer, assign.lhs);
+            try writer.print(" := ", .{});
+            try printExpr(writer, assign.rhs);
+        },
     }
 }
 
 fn printExpr(writer: anytype, expr: *Expr) !void {
     switch (expr.kind) {
-        .call => |call| {
-            try writer.print("({s}.{s} ", .{ call.obj, call.method });
-            try printExpr(writer, call.args);
+        .call => |*call| {
+            try writer.print("(", .{});
+            try printExpr(writer, call.receiver);
+            try writer.print(".{s}", .{call.method});
+            var it = call.args.iterator();
+            while (it.next()) |a| {
+                try writer.print(" ", .{});
+                try printExpr(writer, a);
+            }
+            try writer.print(")", .{});
         },
         .integer => |int| {
             try writer.print("{}", .{int});
+        },
+        .variable => |v| {
+            try writer.print("{s}", .{v});
         },
     }
 }
