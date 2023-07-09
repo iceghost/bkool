@@ -261,16 +261,12 @@ test "simple program" {
     ;
     var program = try parse(raw, allocator);
 
-    var buf: [1024]u8 = undefined;
-    var stream = std.io.fixedBufferStream(&buf);
-    try ast.print(stream.writer(), program);
-
     try std.testing.expectEqualStrings(
         \\class Main
         \\    method main
         \\        io.writeInt 1
         \\
-    , stream.getWritten());
+    , try std.fmt.allocPrint(allocator, "{}", .{@as(*const ast.Program, program)}));
 }
 
 test "simple variables" {
@@ -289,10 +285,6 @@ test "simple variables" {
     ;
     var program = try parse(raw, allocator);
 
-    var buf: [1024]u8 = undefined;
-    var stream = std.io.fixedBufferStream(&buf);
-    try ast.print(stream.writer(), program);
-
     try std.testing.expectEqualStrings(
         \\class Main
         \\    method main
@@ -301,5 +293,5 @@ test "simple variables" {
         \\        b := 2
         \\        io.writeInt a
         \\
-    , stream.getWritten());
+    , try std.fmt.allocPrint(allocator, "{}", .{program}));
 }

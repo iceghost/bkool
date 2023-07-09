@@ -50,11 +50,30 @@ pub fn Head(comptime T: type, comptime field_name: []const u8) type {
             };
         }
 
+        pub fn constIterator(self: *const Self) ConstIterator {
+            return .{
+                .head = &self.node,
+                .current = self.node.next,
+            };
+        }
+
         pub const Iterator = struct {
             head: *Node,
             current: *Node,
 
             pub fn next(self: *Iterator) ?*T {
+                if (self.current == self.head) return null;
+                var n = self.current;
+                self.current = self.current.next;
+                return @fieldParentPtr(T, field_name, n);
+            }
+        };
+
+        pub const ConstIterator = struct {
+            head: *const Node,
+            current: *const Node,
+
+            pub fn next(self: *ConstIterator) ?*const T {
                 if (self.current == self.head) return null;
                 var n = self.current;
                 self.current = self.current.next;
