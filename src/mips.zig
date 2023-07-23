@@ -9,6 +9,7 @@ pub const Instr = struct {
     kind: union(enum) {
         label: []const u8,
         li: [2]Arg,
+        mv: [2]Arg,
         jal: []const u8,
         noop,
     },
@@ -20,10 +21,15 @@ pub const Instr = struct {
 pub const Arg = union(enum) {
     reg: Reg,
     imm: i32,
+    ref: struct {
+        base: Reg,
+        offset: i32,
+    },
 };
 
 pub const Reg = enum {
-    A0,
+    a0,
+    fp,
 };
 
 pub fn print(writer: anytype, prog: *Program) !void {
@@ -43,6 +49,13 @@ fn printInstr(writer: anytype, instr: *Instr) !void {
             try printArg(writer, &args[1]);
             try writer.print("\n", .{});
         },
+        .mv => |*args| {
+            try writer.print(" " ** 4 ++ "mv ", .{});
+            try printArg(writer, &args[0]);
+            try writer.print(", ", .{});
+            try printArg(writer, &args[1]);
+            try writer.print("\n", .{});
+        },
         .jal => |label| try writer.print(" " ** 4 ++ "jal {s}\n", .{label}),
         .noop => {},
     }
@@ -50,9 +63,10 @@ fn printInstr(writer: anytype, instr: *Instr) !void {
 
 fn printArg(writer: anytype, arg: *Arg) !void {
     switch (arg.*) {
-        .reg => |reg| switch (reg) {
-            .A0 => try writer.print("{s}", .{"$a0"}),
-        },
+        .reg => |reg| try writer.print("${s}", .{@tagName(reg)}),
         .imm => |imm| try writer.print("{}", .{imm}),
+        .ref => |ref| {
+            try writer.print("{}(${s})", .{ ref.offset, @tagName(ref.base) });
+        },
     }
 }
