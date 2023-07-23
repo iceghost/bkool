@@ -35,21 +35,23 @@ fn selectStmt(self: Self, stmt: *ast.Stmt, instrs: *mips.Instr.Head) Error!void 
     switch (stmt.kind) {
         .call => |call| {
             instr = try self.allocator.create(mips.Instr);
+            var it = call.args.constIterator();
+            var arg = it.next().?;
             instr.kind = .{
                 .li = .{
                     .{ .reg = mips.Reg.A0 },
-                    .{ .imm = call.args.kind.integer },
+                    .{ .imm = arg.kind.integer },
                 },
             };
             List.insertPrev(&instrs.node, &instr.node);
 
             instr = try self.allocator.create(mips.Instr);
             instr.kind = .{
-                .jal = try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ call.obj, call.method }),
+                .jal = try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ call.receiver, call.method }),
             };
             List.insertPrev(&instrs.node, &instr.node);
         },
-        .noop => {},
+        else => @panic("not implemented"),
     }
 }
 
