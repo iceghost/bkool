@@ -3,6 +3,13 @@ const List = @import("List.zig");
 
 pub const Program = struct {
     instrs: Instr.Head,
+
+    pub fn format(self: *const Program, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        var iter = self.instrs.constIterator();
+        while (iter.next()) |instr| {
+            try writer.print("{}\n", .{instr});
+        }
+    }
 };
 
 pub const Instr = struct {
@@ -11,11 +18,19 @@ pub const Instr = struct {
         li: [2]Arg,
         mv: [2]Arg,
         jal: []const u8,
-        noop,
     },
 
     node: List.Node,
     pub const Head = List.Head(Instr, "node");
+
+    pub fn format(self: Instr, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        switch (self.kind) {
+            .label => |label| try writer.print("{s}:", .{label}),
+            .li => |args| try writer.print(" " ** 4 ++ "li {}, {}", .{ args[0], args[1] }),
+            .mv => |args| try writer.print(" " ** 4 ++ "move {}, {}", .{ args[0], args[1] }),
+            .jal => |label| try writer.print(" " ** 4 ++ "jal {s}", .{label}),
+        }
+    }
 };
 
 pub const Arg = union(enum) {
@@ -25,48 +40,23 @@ pub const Arg = union(enum) {
         base: Reg,
         offset: i32,
     },
+
+    pub fn format(self: Arg, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        switch (self) {
+            .reg => |reg| try writer.print("{}", .{reg}),
+            .imm => |imm| try writer.print("{}", .{imm}),
+            .ref => |ref| {
+                try writer.print("{}({})", .{ ref.offset, ref.base });
+            },
+        }
+    }
 };
 
 pub const Reg = enum {
     a0,
     fp,
+
+    pub fn format(self: Reg, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+        try writer.print("${s}", .{@tagName(self)});
+    }
 };
-
-pub fn print(writer: anytype, prog: *Program) !void {
-    var iter = prog.instrs.iterator();
-    while (iter.next()) |instr| {
-        try printInstr(writer, instr);
-    }
-}
-
-fn printInstr(writer: anytype, instr: *Instr) !void {
-    switch (instr.kind) {
-        .label => |label| try writer.print("{s}:\n", .{label}),
-        .li => |*args| {
-            try writer.print(" " ** 4 ++ "li ", .{});
-            try printArg(writer, &args[0]);
-            try writer.print(", ", .{});
-            try printArg(writer, &args[1]);
-            try writer.print("\n", .{});
-        },
-        .mv => |*args| {
-            try writer.print(" " ** 4 ++ "mv ", .{});
-            try printArg(writer, &args[0]);
-            try writer.print(", ", .{});
-            try printArg(writer, &args[1]);
-            try writer.print("\n", .{});
-        },
-        .jal => |label| try writer.print(" " ** 4 ++ "jal {s}\n", .{label}),
-        .noop => {},
-    }
-}
-
-fn printArg(writer: anytype, arg: *Arg) !void {
-    switch (arg.*) {
-        .reg => |reg| try writer.print("${s}", .{@tagName(reg)}),
-        .imm => |imm| try writer.print("{}", .{imm}),
-        .ref => |ref| {
-            try writer.print("{}(${s})", .{ ref.offset, @tagName(ref.base) });
-        },
-    }
-}

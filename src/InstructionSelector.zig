@@ -110,15 +110,11 @@ test "simple program" {
     var program = try Parser.parse(raw, allocator);
     var mips_prog = try select(allocator, program);
 
-    var buf: [1024]u8 = undefined;
-    var stream = std.io.fixedBufferStream(&buf);
-    try mips.print(stream.writer(), mips_prog);
-
     try std.testing.expectEqualStrings(
-        \\    mv $a0, 1
+        \\    move $a0, 1
         \\    jal io_writeInt
         \\
-    , stream.getWritten());
+    , try std.fmt.allocPrint(allocator, "{}", .{mips_prog}));
 }
 
 test "simple variables" {
@@ -138,15 +134,11 @@ test "simple variables" {
     var program = try Parser.parse(raw, allocator);
     var mips_prog = try select(allocator, program);
 
-    var buf: [1024]u8 = undefined;
-    var stream = std.io.fixedBufferStream(&buf);
-    try mips.print(stream.writer(), mips_prog);
-
     try std.testing.expectEqualStrings(
-        \\    mv 0($fp), 8
-        \\    mv -4($fp), 2
-        \\    mv $a0, 0($fp)
+        \\    move 0($fp), 8
+        \\    move -4($fp), 2
+        \\    move $a0, 0($fp)
         \\    jal io_writeInt
         \\
-    , stream.getWritten());
+    , try std.fmt.allocPrint(allocator, "{}", .{mips_prog}));
 }

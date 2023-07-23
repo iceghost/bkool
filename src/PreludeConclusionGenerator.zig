@@ -31,15 +31,11 @@ test "simple program" {
     var mips_prog = try InstructionSelector.select(allocator, program);
     try generate(allocator, mips_prog);
 
-    var buf: [1024]u8 = undefined;
-    var stream = std.io.fixedBufferStream(&buf);
-    try mips.print(stream.writer(), mips_prog);
-
     try std.testing.expectEqualStrings(
         \\main:
         \\    li $a0, 1
         \\    jal io_writeInt
         \\    jal exit
         \\
-    , stream.getWritten());
+    , try std.fmt.allocPrint(allocator, "{}", .{mips_prog}));
 }
