@@ -20,37 +20,32 @@ pub fn patch(allocator: std.mem.Allocator, program: *mips.Program) Error!void {
 
 fn patchInstr(self: *Self, instr: *mips.Instr) Error!void {
     switch (instr.kind) {
-        .move => |*args| {
-            var arg0 = args[0];
-            var arg1 = args[1];
-
-            switch (arg0) {
-                .reg => switch (arg1) {
-                    .reg => return,
-                    .imm => instr.kind = .{ .li = args.* },
-                    .ref => instr.kind = .{ .lw = .{ arg0, arg1 } },
-                    else => unreachable,
+        .pmove => |args| switch (args[0]) {
+            .reg => |reg0| switch (args[1]) {
+                .reg => |reg1| instr.kind = .{ .move = .{ .rd = reg0, .rs = reg1 } },
+                .imm => |imm1| instr.kind = .{ .li = .{ .rd = reg0, .imm = imm1 } },
+                .ref => |ref1| instr.kind = .{ .lw = .{ .rd = reg0, .src = ref1 } },
+                else => unreachable,
+            },
+            .ref => |ref0| switch (args[1]) {
+                .reg => |reg1| instr.kind = .{ .sw = .{ .rs = reg1, .dest = ref0 } },
+                .imm => |imm1| {
+                    var tmp = try self.allocator.create(mips.Instr);
+                    tmp.kind = .{ .li = .{ .rd = mips.Reg.t0, .imm = imm1 } };
+                    List.insertPrev(&instr.node, &tmp.node);
+                    instr.kind = .{ .sw = .{ .rs = mips.Reg.t0, .dest = ref0 } };
                 },
-                .ref => switch (arg1) {
-                    .reg => instr.kind = .{ .sw = .{ arg1, arg0 } },
-                    .imm => {
-                        var tmp = try self.allocator.create(mips.Instr);
-                        tmp.kind = .{ .li = .{ .{ .reg = mips.Reg.t0 }, arg1 } };
-                        List.insertPrev(&instr.node, &tmp.node);
-                        instr.kind = .{ .sw = .{ .{ .reg = mips.Reg.t0 }, arg0 } };
-                    },
-                    .ref => {
-                        var tmp = try self.allocator.create(mips.Instr);
-                        tmp.kind = .{ .lw = .{ .{ .reg = mips.Reg.t0 }, arg1 } };
-                        List.insertPrev(&instr.node, &tmp.node);
-                        instr.kind = .{ .sw = .{ .{ .reg = mips.Reg.t0 }, arg0 } };
-                    },
-                    else => unreachable,
+                .ref => |ref1| {
+                    var tmp = try self.allocator.create(mips.Instr);
+                    tmp.kind = .{ .lw = .{ .rd = mips.Reg.t0, .src = ref1 } };
+                    List.insertPrev(&instr.node, &tmp.node);
+                    instr.kind = .{ .sw = .{ .rs = mips.Reg.t0, .dest = ref0 } };
                 },
                 else => unreachable,
-            }
+            },
+            else => unreachable,
         },
-        else => {},
+        else => return,
     }
 }
 
