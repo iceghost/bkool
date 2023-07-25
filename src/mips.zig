@@ -40,14 +40,14 @@ pub const Arg = union(enum) {
         base: Reg,
         offset: i32,
     },
+    vir: []const u8,
 
     pub fn format(self: Arg, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         switch (self) {
             .reg => |reg| try writer.print("{}", .{reg}),
             .imm => |imm| try writer.print("{}", .{imm}),
-            .ref => |ref| {
-                try writer.print("{}({})", .{ ref.offset, ref.base });
-            },
+            .ref => |ref| try writer.print("{}({})", .{ ref.offset, ref.base }),
+            .vir => |vir| try writer.print("{s}", .{vir}),
         }
     }
 };

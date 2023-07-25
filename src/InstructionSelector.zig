@@ -5,14 +5,12 @@ const mips = @import("./mips.zig");
 const List = @import("List.zig");
 
 allocator: std.mem.Allocator,
-var_homes: std.StringArrayHashMap(usize),
 
 const Error = error{OutOfMemory};
 
 pub fn select(allocator: std.mem.Allocator, program: *ast.Program) Error!*mips.Program {
     var self = Self{
         .allocator = allocator,
-        .var_homes = std.StringArrayHashMap(usize).init(allocator),
     };
     return try self.selectClass(program.class);
 }
@@ -54,15 +52,10 @@ fn selectStmt(self: *Self, stmt: *ast.Stmt, instrs: *mips.Instr.Head) Error!void
             List.insertPrev(&instrs.node, &instr.node);
         },
         .var_decl => |var_decl| {
-            var res = try self.var_homes.getOrPut(var_decl.name);
-            if (res.found_existing)
-                @panic("(TODO) variable existed");
-            res.value_ptr.* = self.var_homes.count() - 1;
-
             if (var_decl.initializer) |initializer| {
                 instr = try self.allocator.create(mips.Instr);
                 instr.kind = .{ .mv = .{
-                    .{ .ref = .{ .base = mips.Reg.fp, .offset = -4 * @as(i32, @intCast(res.value_ptr.*)) } },
+                    .{ .vir = var_decl.name },
                     try self.selectExpr(initializer),
                 } };
                 List.insertPrev(&instrs.node, &instr.node);
@@ -79,16 +72,10 @@ fn selectStmt(self: *Self, stmt: *ast.Stmt, instrs: *mips.Instr.Head) Error!void
     }
 }
 
-fn selectExpr(self: *Self, expr: *const ast.Expr) Error!mips.Arg {
+fn selectExpr(_: *Self, expr: *const ast.Expr) Error!mips.Arg {
     return switch (expr.kind) {
         .integer => |i| .{ .imm = i },
-        .variable => |x| blk: {
-            const home = self.var_homes.get(x) orelse @panic("variable not found");
-            break :blk .{ .ref = .{
-                .base = mips.Reg.fp,
-                .offset = -4 * @as(i32, @intCast(home)),
-            } };
-        },
+        .variable => |x| .{ .vir = x },
         else => @panic("unimplemented"),
     };
 }
@@ -135,9 +122,9 @@ test "simple variables" {
     var mips_prog = try select(allocator, program);
 
     try std.testing.expectEqualStrings(
-        \\    move 0($fp), 8
-        \\    move -4($fp), 2
-        \\    move $a0, 0($fp)
+        \\    move a, 8
+        \\    move b, 2
+        \\    move $a0, a
         \\    jal io_writeInt
         \\
     , try std.fmt.allocPrint(allocator, "{}", .{mips_prog}));
