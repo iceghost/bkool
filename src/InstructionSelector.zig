@@ -38,7 +38,7 @@ fn selectStmt(self: *Self, stmt: *ast.Stmt, instrs: *mips.Instr.Head) Error!void
             var it = call.args.constIterator();
             var arg = it.next().?;
             instr.kind = .{
-                .mv = .{
+                .move = .{
                     .{ .reg = mips.Reg.a0 },
                     try self.selectExpr(arg),
                 },
@@ -54,7 +54,7 @@ fn selectStmt(self: *Self, stmt: *ast.Stmt, instrs: *mips.Instr.Head) Error!void
         .var_decl => |var_decl| {
             if (var_decl.initializer) |initializer| {
                 instr = try self.allocator.create(mips.Instr);
-                instr.kind = .{ .mv = .{
+                instr.kind = .{ .move = .{
                     .{ .vir = var_decl.name },
                     try self.selectExpr(initializer),
                 } };
@@ -63,7 +63,7 @@ fn selectStmt(self: *Self, stmt: *ast.Stmt, instrs: *mips.Instr.Head) Error!void
         },
         .assign => |assign| {
             instr = try self.allocator.create(mips.Instr);
-            instr.kind = .{ .mv = .{
+            instr.kind = .{ .move = .{
                 try self.selectExpr(assign.lhs),
                 try self.selectExpr(assign.rhs),
             } };

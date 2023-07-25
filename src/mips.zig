@@ -16,7 +16,9 @@ pub const Instr = struct {
     kind: union(enum) {
         label: []const u8,
         li: [2]Arg,
-        mv: [2]Arg,
+        move: [2]Arg,
+        sw: [2]Arg,
+        lw: [2]Arg,
         jal: []const u8,
     },
 
@@ -26,8 +28,7 @@ pub const Instr = struct {
     pub fn format(self: Instr, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         switch (self.kind) {
             .label => |label| try writer.print("{s}:", .{label}),
-            .li => |args| try writer.print(" " ** 4 ++ "li {}, {}", .{ args[0], args[1] }),
-            .mv => |args| try writer.print(" " ** 4 ++ "move {}, {}", .{ args[0], args[1] }),
+            .li, .move, .sw, .lw => |args| try writer.print(" " ** 4 ++ "{s} {}, {}", .{ @tagName(self.kind), args[0], args[1] }),
             .jal => |label| try writer.print(" " ** 4 ++ "jal {s}", .{label}),
         }
     }
@@ -53,6 +54,7 @@ pub const Arg = union(enum) {
 };
 
 pub const Reg = enum {
+    t0,
     a0,
     fp,
 
