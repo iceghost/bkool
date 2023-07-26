@@ -1,8 +1,8 @@
 const std = @import("std");
-const Parser = @import("./Parser.zig");
-const InstructionSelector = @import("./InstructionSelector.zig");
-const PreludeConclusionGenerator = @import("./PreludeConclusionGenerator.zig");
-const mips = @import("./mips.zig");
+const Parser = @import("Parser.zig");
+const InstructionSelector = @import("InstructionSelector.zig");
+const PreludeConclusionGenerator = @import("PreludeConclusionGenerator.zig");
+const mips = @import("mips.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};

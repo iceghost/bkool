@@ -1,7 +1,7 @@
 const std = @import("std");
 const Self = @This();
-const ast = @import("./ast.zig");
-const mips = @import("./mips.zig");
+const ast = @import("ast.zig");
+const mips = @import("mips.zig");
 const List = @import("List.zig");
 
 allocator: std.mem.Allocator,
@@ -49,7 +49,7 @@ fn patchInstr(self: *Self, instr: *mips.Instr) Error!void {
     }
 }
 
-const Parser = @import("./Parser.zig");
+const Parser = @import("Parser.zig");
 const InstructionSelector = @import("InstructionSelector.zig");
 const HomeAssigner = @import("HomeAssigner.zig");
 

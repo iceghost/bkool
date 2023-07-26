@@ -1,5 +1,5 @@
 const std = @import("std");
-const mips = @import("./mips.zig");
+const mips = @import("mips.zig");
 const List = @import("List.zig");
 
 pub fn generate(allocator: std.mem.Allocator, prog: *mips.Program) !void {
@@ -12,8 +12,8 @@ pub fn generate(allocator: std.mem.Allocator, prog: *mips.Program) !void {
     List.insertPrev(&prog.instrs.node, &instr.node);
 }
 
-const Parser = @import("./Parser.zig");
-const InstructionSelector = @import("./InstructionSelector.zig");
+const Parser = @import("Parser.zig");
+const InstructionSelector = @import("InstructionSelector.zig");
 const HomeAssigner = @import("HomeAssigner.zig");
 const InstructionPatcher = @import("InstructionPatcher.zig");
 

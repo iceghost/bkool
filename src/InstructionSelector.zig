@@ -1,7 +1,7 @@
 const std = @import("std");
 const Self = @This();
-const ast = @import("./ast.zig");
-const mips = @import("./mips.zig");
+const ast = @import("ast.zig");
+const mips = @import("mips.zig");
 const List = @import("List.zig");
 
 allocator: std.mem.Allocator,
@@ -80,7 +80,7 @@ fn selectExpr(_: *Self, expr: *const ast.Expr) Error!mips.Arg {
     };
 }
 
-const Parser = @import("./Parser.zig");
+const Parser = @import("Parser.zig");
 
 test "simple program" {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
