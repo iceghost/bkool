@@ -79,6 +79,7 @@ pub const Expr = struct {
         call: Call,
         integer: i32,
         variable: []const u8,
+        binary: Binary,
     },
     node: List.Node = .{},
     const Head = List.Head(Expr, "node");
@@ -92,6 +93,23 @@ pub const Expr = struct {
     pub const Field = struct {
         receiver: *Expr,
         field: []const u8,
+    };
+
+    pub const Binary = struct {
+        left: *Expr,
+        right: *Expr,
+        op: Op,
+
+        pub const Op = enum {
+            add,
+
+            pub fn format(self: Op, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
+                const s: []const u8 = switch (self) {
+                    .add => "+",
+                };
+                try writer.print(s, .{});
+            }
+        };
     };
 
     pub fn format(self: *const Expr, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
@@ -109,6 +127,9 @@ pub const Expr = struct {
             },
             .variable => |v| {
                 try writer.print("{s}", .{v});
+            },
+            .binary => |bin| {
+                try writer.print("({} {} {})", .{ bin.op, bin.left, bin.right });
             },
         }
     }

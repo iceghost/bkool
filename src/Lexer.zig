@@ -21,6 +21,7 @@ pub const Token = union(enum) {
     equal,
     colon_equal,
     comma,
+    plus,
     eof,
 };
 pub const TokenTag = std.meta.Tag(Token);
@@ -46,6 +47,7 @@ pub fn next(self: *Lexer) Token {
         ';' => .semicolon,
         ',' => .comma,
         '=' => .equal,
+        '+' => .plus,
         ':' => switch (self.eat()) {
             '=' => .colon_equal,
             else => unreachable,

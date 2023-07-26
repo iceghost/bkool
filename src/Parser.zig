@@ -156,6 +156,8 @@ fn parseExprHelp(self: *Parser, left_bp: u8) Error!*ast.Expr {
 
 const PRATT = blk: {
     var p = Pratt{};
+    p.add(&p.INFIX, .plus, parseBinary, .l);
+    p.bump();
     p.add(&p.POSTFIX, .dot, parseField, .n);
     p.bump();
     p.add(&p.PREFIX, .identifier, parseVariable, .n);
@@ -190,6 +192,23 @@ const Pratt = struct {
         self.bp += 2;
     }
 };
+
+fn parseBinary(self: *Parser, left: *ast.Expr, bp: u8) Error!*ast.Expr {
+    var bin_expr = try self.allocator.create(ast.Expr);
+    self.eat();
+    switch (self.current) {
+        .plus => {
+            var right = try self.parseExprHelp(bp);
+            bin_expr.kind = .{ .binary = .{
+                .left = left,
+                .right = right,
+                .op = .add,
+            } };
+        },
+        else => unreachable,
+    }
+    return bin_expr;
+}
 
 fn parseField(self: *Parser, receiver: *ast.Expr, _: u8) Error!*ast.Expr {
     self.eatAndExpect(.dot) catch unreachable;
@@ -292,6 +311,57 @@ test "simple variables" {
         \\        b: int
         \\        b := 2
         \\        io.writeInt a
+        \\
+    , try std.fmt.allocPrint(allocator, "{}", .{program}));
+}
+
+test "variables with addition" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    var allocator = arena.allocator();
+
+    const raw: []const u8 =
+        \\class Main {
+        \\    static void main() {
+        \\        int a = 8, b;
+        \\        b := 2;
+        \\        io.writeInt(a + 1);
+        \\        io.writeInt(b + a);
+        \\    }
+        \\}
+    ;
+    var program = try parse(raw, allocator);
+
+    try std.testing.expectEqualStrings(
+        \\class Main
+        \\    method main
+        \\        a: int = 8
+        \\        b: int
+        \\        b := 2
+        \\        io.writeInt (+ a 1)
+        \\        io.writeInt (+ b a)
+        \\
+    , try std.fmt.allocPrint(allocator, "{}", .{program}));
+}
+
+test "associative add" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    var allocator = arena.allocator();
+
+    const raw: []const u8 =
+        \\class Main {
+        \\    static void main() {
+        \\        io.writeInt(1 + 2 + 3);
+        \\    }
+        \\}
+    ;
+    var program = try parse(raw, allocator);
+
+    try std.testing.expectEqualStrings(
+        \\class Main
+        \\    method main
+        \\        io.writeInt (+ (+ 1 2) 3)
         \\
     , try std.fmt.allocPrint(allocator, "{}", .{program}));
 }
