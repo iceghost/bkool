@@ -14,6 +14,8 @@ pub fn generate(allocator: std.mem.Allocator, prog: *mips.Program) !void {
 
 const Parser = @import("./Parser.zig");
 const InstructionSelector = @import("./InstructionSelector.zig");
+const HomeAssigner = @import("HomeAssigner.zig");
+const InstructionPatcher = @import("InstructionPatcher.zig");
 
 test "simple program" {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -29,11 +31,13 @@ test "simple program" {
     ;
     var program = try Parser.parse(raw, allocator);
     var mips_prog = try InstructionSelector.select(allocator, program);
+    try HomeAssigner.assign(allocator, mips_prog);
+    try InstructionPatcher.patch(allocator, mips_prog);
     try generate(allocator, mips_prog);
 
     try std.testing.expectEqualStrings(
         \\main:
-        \\    move $a0, 1
+        \\    li $a0, 1
         \\    jal io_writeInt
         \\    jal exit
         \\
@@ -56,13 +60,17 @@ test "simple variables" {
     ;
     var program = try Parser.parse(raw, allocator);
     var mips_prog = try InstructionSelector.select(allocator, program);
+    try HomeAssigner.assign(allocator, mips_prog);
+    try InstructionPatcher.patch(allocator, mips_prog);
     try generate(allocator, mips_prog);
 
     try std.testing.expectEqualStrings(
         \\main:
-        \\    move 0($fp), 8
-        \\    move -4($fp), 2
-        \\    move $a0, 0($fp)
+        \\    li $t0, 8
+        \\    sw $t0, 0($fp)
+        \\    li $t0, 2
+        \\    sw $t0, 4($fp)
+        \\    lw $a0, 0($fp)
         \\    jal io_writeInt
         \\    jal exit
         \\
