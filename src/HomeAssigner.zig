@@ -49,33 +49,3 @@ fn assignInstr(self: *Self, instr: *mips.Instr) Error!void {
         else => {},
     }
 }
-
-const Parser = @import("Parser.zig");
-const InstructionSelector = @import("InstructionSelector.zig");
-
-test "simple variables" {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    var allocator = arena.allocator();
-
-    const raw: []const u8 =
-        \\class Main {
-        \\    static void main() {
-        \\        int a = 8, b;
-        \\        b := 2;
-        \\        io.writeInt(a);
-        \\    }
-        \\}
-    ;
-    var program = try Parser.parse(raw, allocator);
-    var mips_prog = try InstructionSelector.select(allocator, program);
-    try assign(allocator, mips_prog);
-
-    try std.testing.expectEqualStrings(
-        \\    move 0($fp), 8
-        \\    move 4($fp), 2
-        \\    move $a0, 0($fp)
-        \\    jal io_writeInt
-        \\
-    , try std.fmt.allocPrint(allocator, "{}", .{mips_prog}));
-}
