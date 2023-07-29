@@ -6,6 +6,7 @@ const InstructionSelector = @import("InstructionSelector.zig");
 const HomeAssigner = @import("HomeAssigner.zig");
 const InstructionPatcher = @import("InstructionPatcher.zig");
 const PreludeConclusionGenerator = @import("PreludeConclusionGenerator.zig");
+const ComplexOperandRemover = @import("ComplexOperandRemover.zig");
 
 comptime {
     _ = @import("ast.zig");
@@ -33,6 +34,14 @@ test "simple program" {
     ;
 
     var program = try Parser.parse(raw, allocator);
+    try snap(@src(),
+        \\class Main
+        \\    method main
+        \\        io.writeInt 1
+        \\
+    ).diffFmt("{}", .{program});
+
+    try ComplexOperandRemover.remove(allocator, program);
     try snap(@src(),
         \\class Main
         \\    method main
@@ -87,6 +96,17 @@ test "simple variables" {
     ;
 
     var program = try Parser.parse(raw, allocator);
+    try snap(@src(),
+        \\class Main
+        \\    method main
+        \\        a: int = 8
+        \\        b: int
+        \\        b := 2
+        \\        io.writeInt a
+        \\
+    ).diffFmt("{}", .{program});
+
+    try ComplexOperandRemover.remove(allocator, program);
     try snap(@src(),
         \\class Main
         \\    method main
@@ -168,6 +188,20 @@ test "variables with addition" {
         \\
     ).diffFmt("{}", .{program});
 
+    try ComplexOperandRemover.remove(allocator, program);
+    try snap(@src(),
+        \\class Main
+        \\    method main
+        \\        a: int = 8
+        \\        b: int
+        \\        b := 2
+        \\        tmp$0: int = (+ a 1)
+        \\        io.writeInt tmp$0
+        \\        tmp$1: int = (+ b a)
+        \\        io.writeInt tmp$1
+        \\
+    ).diffFmt("{}", .{program});
+
     try skipRemaining();
 
     var mips_prog = try InstructionSelector.select(allocator, program);
@@ -209,6 +243,16 @@ test "associative addition" {
         \\class Main
         \\    method main
         \\        io.writeInt (+ (+ 1 2) 3)
+        \\
+    ).diffFmt("{}", .{program});
+
+    try ComplexOperandRemover.remove(allocator, program);
+    try snap(@src(),
+        \\class Main
+        \\    method main
+        \\        tmp$0: int = (+ 1 2)
+        \\        tmp$1: int = (+ tmp$0 3)
+        \\        io.writeInt tmp$1
         \\
     ).diffFmt("{}", .{program});
 
