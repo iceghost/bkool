@@ -23,6 +23,7 @@ pub const Instr = struct {
 
         // non-patched instructions
         pmove: [2]Arg,
+        addv: [3]Arg,
     },
 
     node: List.Node,
@@ -37,6 +38,7 @@ pub const Instr = struct {
             .li => |args| try writer.print(" " ** 4 ++ "{s} {}, {}", .{ @tagName(self.kind), args.rd, args.imm }),
             .jal => |label| try writer.print(" " ** 4 ++ "jal {s}", .{label}),
             .pmove => |args| try writer.print(" " ** 4 ++ "{s} {}, {}", .{ @tagName(self.kind)[1..], args[0], args[1] }),
+            .addv => |args| try writer.print(" " ** 4 ++ "{s} {}, {}, {}", .{ @tagName(self.kind), args[0], args[1], args[2] }),
         }
     }
 };

@@ -202,12 +202,20 @@ test "variables with addition" {
         \\
     ).diffFmt("{}", .{program});
 
-    try skipRemaining();
-
     var mips_prog = try InstructionSelector.select(allocator, program);
     try snap(@src(),
+        \\    move a, 8
+        \\    move b, 2
+        \\    addv tmp$0, a, 1
+        \\    move $a0, tmp$0
+        \\    jal io_writeInt
+        \\    addv tmp$1, b, a
+        \\    move $a0, tmp$1
+        \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
+
+    try skipRemaining();
 
     try HomeAssigner.assign(allocator, mips_prog);
     try snap(@src(),
@@ -256,12 +264,16 @@ test "associative addition" {
         \\
     ).diffFmt("{}", .{program});
 
-    try skipRemaining();
-
     var mips_prog = try InstructionSelector.select(allocator, program);
     try snap(@src(),
+        \\    addv tmp$0, 1, 2
+        \\    addv tmp$1, tmp$0, 3
+        \\    move $a0, tmp$1
+        \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
+
+    try skipRemaining();
 
     try HomeAssigner.assign(allocator, mips_prog);
     try snap(@src(),

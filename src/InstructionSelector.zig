@@ -53,29 +53,42 @@ fn selectStmt(self: *Self, stmt: *ast.Stmt, instrs: *mips.Instr.Head) Error!void
         },
         .var_decl => |var_decl| {
             if (var_decl.initializer) |initializer| {
-                instr = try self.allocator.create(mips.Instr);
-                instr.kind = .{ .pmove = .{
-                    .{ .vir = var_decl.name },
-                    try self.selectExpr(initializer),
-                } };
-                List.insertPrev(&instrs.node, &instr.node);
+                try self.selectAssign(.{ .vir = var_decl.name }, initializer, instrs);
             }
         },
         .assign => |assign| {
-            instr = try self.allocator.create(mips.Instr);
-            instr.kind = .{ .pmove = .{
-                try self.selectExpr(assign.lhs),
-                try self.selectExpr(assign.rhs),
-            } };
-            List.insertPrev(&instrs.node, &instr.node);
+            var lhs = try self.selectExpr(assign.lhs);
+            try self.selectAssign(lhs, assign.rhs, instrs);
         },
     }
+}
+
+fn selectAssign(self: *Self, lhs: mips.Arg, rhs: *const ast.Expr, instrs: *mips.Instr.Head) Error!void {
+    var instr = try self.allocator.create(mips.Instr);
+    instr.kind = switch (rhs.kind) {
+        .binary => |binary| blk: {
+            var left = try self.selectExpr(binary.left);
+            var right = try self.selectExpr(binary.right);
+            break :blk switch (binary.op) {
+                .add => .{ .addv = .{
+                    lhs,
+                    left,
+                    right,
+                } },
+            };
+        },
+        else => .{ .pmove = .{
+            lhs,
+            try self.selectExpr(rhs),
+        } },
+    };
+    List.insertPrev(&instrs.node, &instr.node);
 }
 
 fn selectExpr(_: *Self, expr: *const ast.Expr) Error!mips.Arg {
     return switch (expr.kind) {
         .integer => |i| .{ .imm = i },
         .variable => |x| .{ .vir = x },
-        else => @panic("unimplemented"),
+        else => std.debug.panic("expr kind {s}", .{@tagName(expr.kind)}),
     };
 }
