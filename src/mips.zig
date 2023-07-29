@@ -17,8 +17,10 @@ pub const Instr = struct {
         label: []const u8,
         li: struct { rd: Reg, imm: i32 },
         move: struct { rd: Reg, rs: Reg },
-        sw: struct { rs: Reg, dest: Arg.Ref },
+        sw: struct { rs: Reg, dst: Arg.Ref },
         lw: struct { rd: Reg, src: Arg.Ref },
+        add: struct { rd: Reg, rs: Reg, rt: Reg },
+        addi: struct { rd: Reg, rs: Reg, imm: i32 },
         jal: []const u8,
 
         // non-patched instructions
@@ -33,9 +35,11 @@ pub const Instr = struct {
         switch (self.kind) {
             .label => |label| try writer.print("{s}:", .{label}),
             .move => |args| try writer.print(" " ** 4 ++ "{s} {}, {}", .{ @tagName(self.kind), args.rd, args.rs }),
-            .sw => |args| try writer.print(" " ** 4 ++ "{s} {}, {}", .{ @tagName(self.kind), args.rs, args.dest }),
+            .sw => |args| try writer.print(" " ** 4 ++ "{s} {}, {}", .{ @tagName(self.kind), args.rs, args.dst }),
             .lw => |args| try writer.print(" " ** 4 ++ "{s} {}, {}", .{ @tagName(self.kind), args.rd, args.src }),
             .li => |args| try writer.print(" " ** 4 ++ "{s} {}, {}", .{ @tagName(self.kind), args.rd, args.imm }),
+            .add => |args| try writer.print(" " ** 4 ++ "{s} {}, {}, {}", .{ @tagName(self.kind), args.rd, args.rs, args.rt }),
+            .addi => |args| try writer.print(" " ** 4 ++ "{s} {}, {}, {}", .{ @tagName(self.kind), args.rd, args.rs, args.imm }),
             .jal => |label| try writer.print(" " ** 4 ++ "jal {s}", .{label}),
             .pmove => |args| try writer.print(" " ** 4 ++ "{s} {}, {}", .{ @tagName(self.kind)[1..], args[0], args[1] }),
             .addv => |args| try writer.print(" " ** 4 ++ "{s} {}, {}, {}", .{ @tagName(self.kind), args[0], args[1], args[2] }),
@@ -70,6 +74,10 @@ pub const Arg = union(enum) {
 
 pub const Reg = enum {
     t0,
+    // scratch register
+    t8,
+    t9,
+    // arguments
     a0,
     fp,
 

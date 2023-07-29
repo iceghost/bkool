@@ -137,10 +137,10 @@ test "simple variables" {
 
     try InstructionPatcher.patch(allocator, mips_prog);
     try snap(@src(),
-        \\    li $t0, 8
-        \\    sw $t0, 0($fp)
-        \\    li $t0, 2
-        \\    sw $t0, 4($fp)
+        \\    li $t8, 8
+        \\    sw $t8, 0($fp)
+        \\    li $t8, 2
+        \\    sw $t8, 4($fp)
         \\    lw $a0, 0($fp)
         \\    jal io_writeInt
         \\
@@ -149,10 +149,10 @@ test "simple variables" {
     try PreludeConclusionGenerator.generate(allocator, mips_prog);
     try snap(@src(),
         \\main:
-        \\    li $t0, 8
-        \\    sw $t0, 0($fp)
-        \\    li $t0, 2
-        \\    sw $t0, 4($fp)
+        \\    li $t8, 8
+        \\    sw $t8, 0($fp)
+        \\    li $t8, 2
+        \\    sw $t8, 4($fp)
         \\    lw $a0, 0($fp)
         \\    jal io_writeInt
         \\    jal exit
@@ -215,20 +215,58 @@ test "variables with addition" {
         \\
     ).diffFmt("{}", .{mips_prog});
 
-    try skipRemaining();
-
     try HomeAssigner.assign(allocator, mips_prog);
     try snap(@src(),
+        \\    move 0($fp), 8
+        \\    move 4($fp), 2
+        \\    addv 8($fp), 0($fp), 1
+        \\    move $a0, 8($fp)
+        \\    jal io_writeInt
+        \\    addv 12($fp), 4($fp), 0($fp)
+        \\    move $a0, 12($fp)
+        \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
 
     try InstructionPatcher.patch(allocator, mips_prog);
     try snap(@src(),
+        \\    li $t8, 8
+        \\    sw $t8, 0($fp)
+        \\    li $t8, 2
+        \\    sw $t8, 4($fp)
+        \\    lw $t8, 0($fp)
+        \\    addi $t8, $t8, 1
+        \\    sw $t8, 8($fp)
+        \\    lw $a0, 8($fp)
+        \\    jal io_writeInt
+        \\    lw $t9, 4($fp)
+        \\    lw $t8, 0($fp)
+        \\    add $t8, $t9, $t8
+        \\    sw $t8, 12($fp)
+        \\    lw $a0, 12($fp)
+        \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
 
     try PreludeConclusionGenerator.generate(allocator, mips_prog);
     try snap(@src(),
+        \\main:
+        \\    li $t8, 8
+        \\    sw $t8, 0($fp)
+        \\    li $t8, 2
+        \\    sw $t8, 4($fp)
+        \\    lw $t8, 0($fp)
+        \\    addi $t8, $t8, 1
+        \\    sw $t8, 8($fp)
+        \\    lw $a0, 8($fp)
+        \\    jal io_writeInt
+        \\    lw $t9, 4($fp)
+        \\    lw $t8, 0($fp)
+        \\    add $t8, $t9, $t8
+        \\    sw $t8, 12($fp)
+        \\    lw $a0, 12($fp)
+        \\    jal io_writeInt
+        \\    jal exit
         \\
     ).diffFmt("{}", .{mips_prog});
 }
@@ -273,20 +311,42 @@ test "associative addition" {
         \\
     ).diffFmt("{}", .{mips_prog});
 
-    try skipRemaining();
-
     try HomeAssigner.assign(allocator, mips_prog);
     try snap(@src(),
+        \\    addv 0($fp), 1, 2
+        \\    addv 4($fp), 0($fp), 3
+        \\    move $a0, 4($fp)
+        \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
 
     try InstructionPatcher.patch(allocator, mips_prog);
     try snap(@src(),
+        \\    li $t8, 1
+        \\    li $t9, 2
+        \\    add $t8, $t8, $t9
+        \\    sw $t8, 0($fp)
+        \\    lw $t8, 0($fp)
+        \\    addi $t8, $t8, 3
+        \\    sw $t8, 4($fp)
+        \\    lw $a0, 4($fp)
+        \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
 
     try PreludeConclusionGenerator.generate(allocator, mips_prog);
     try snap(@src(),
+        \\main:
+        \\    li $t8, 1
+        \\    li $t9, 2
+        \\    add $t8, $t8, $t9
+        \\    sw $t8, 0($fp)
+        \\    lw $t8, 0($fp)
+        \\    addi $t8, $t8, 3
+        \\    sw $t8, 4($fp)
+        \\    lw $a0, 4($fp)
+        \\    jal io_writeInt
+        \\    jal exit
         \\
     ).diffFmt("{}", .{mips_prog});
 }

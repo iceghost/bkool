@@ -23,29 +23,42 @@ pub fn assign(allocator: std.mem.Allocator, program: *mips.Program) Error!void {
 fn assignInstr(self: *Self, instr: *mips.Instr) Error!void {
     switch (instr.kind) {
         .pmove => |*args| {
-            if (args[0] == .vir) {
-                const res = try self.var_homes.getOrPut(args[0].vir);
-
-                if (!res.found_existing)
-                    res.value_ptr.* = self.var_homes.count() - 1;
-
-                args[0] = .{ .ref = .{
-                    .base = mips.Reg.fp,
-                    .offset = 4 * @as(i32, @intCast(res.value_ptr.*)),
-                } };
-            }
-            if (args[1] == .vir) {
-                const res = try self.var_homes.getOrPut(args[1].vir);
-
-                // earlier passes should have caught this
-                if (!res.found_existing) unreachable;
-
-                args[1] = .{ .ref = .{
-                    .base = mips.Reg.fp,
-                    .offset = 4 * @as(i32, @intCast(res.value_ptr.*)),
-                } };
-            }
+            try self.put(&args[0]);
+            try self.get(&args[1]);
+        },
+        .addv => |*args| {
+            try self.put(&args[0]);
+            try self.get(&args[1]);
+            try self.get(&args[2]);
         },
         else => {},
+    }
+}
+
+fn put(self: *Self, arg: *mips.Arg) Error!void {
+    if (arg.* == .vir) {
+        const res = try self.var_homes.getOrPut(arg.vir);
+
+        if (!res.found_existing)
+            res.value_ptr.* = self.var_homes.count() - 1;
+
+        arg.* = .{ .ref = .{
+            .base = mips.Reg.fp,
+            .offset = 4 * @as(i32, @intCast(res.value_ptr.*)),
+        } };
+    }
+}
+
+fn get(self: *Self, arg: *mips.Arg) Error!void {
+    if (arg.* == .vir) {
+        const res = try self.var_homes.getOrPut(arg.vir);
+
+        // earlier passes should have caught this
+        if (!res.found_existing) unreachable;
+
+        arg.* = .{ .ref = .{
+            .base = mips.Reg.fp,
+            .offset = 4 * @as(i32, @intCast(res.value_ptr.*)),
+        } };
     }
 }
