@@ -18,6 +18,7 @@ pub fn assign(allocator: std.mem.Allocator, program: *mips.Program) Error!void {
     while (it.next()) |instr| {
         try self.assignInstr(instr);
     }
+    program.var_homes = self.var_homes.unmanaged;
 }
 
 fn assignInstr(self: *Self, instr: *mips.Instr) Error!void {

@@ -73,8 +73,13 @@ test "simple program" {
     try PreludeConclusionGenerator.generate(allocator, mips_prog);
     try snap(@src(),
         \\main:
+        \\    sw $fp, -4($sp)
+        \\    addi $fp, $sp, -4
+        \\    addi $sp, $sp, -4
         \\    li $a0, 1
         \\    jal io_writeInt
+        \\    addi $sp, $fp, 4
+        \\    lw $fp, -4($sp)
         \\    jal exit
         \\
     ).diffFmt("{}", .{mips_prog});
@@ -149,12 +154,17 @@ test "simple variables" {
     try PreludeConclusionGenerator.generate(allocator, mips_prog);
     try snap(@src(),
         \\main:
+        \\    sw $fp, -4($sp)
+        \\    addi $fp, $sp, -4
+        \\    addi $sp, $sp, -12
         \\    li $t8, 8
         \\    sw $t8, 0($fp)
         \\    li $t8, 2
         \\    sw $t8, 4($fp)
         \\    lw $a0, 0($fp)
         \\    jal io_writeInt
+        \\    addi $sp, $fp, 4
+        \\    lw $fp, -4($sp)
         \\    jal exit
         \\
     ).diffFmt("{}", .{mips_prog});
@@ -251,6 +261,9 @@ test "variables with addition" {
     try PreludeConclusionGenerator.generate(allocator, mips_prog);
     try snap(@src(),
         \\main:
+        \\    sw $fp, -4($sp)
+        \\    addi $fp, $sp, -4
+        \\    addi $sp, $sp, -20
         \\    li $t8, 8
         \\    sw $t8, 0($fp)
         \\    li $t8, 2
@@ -266,6 +279,8 @@ test "variables with addition" {
         \\    sw $t8, 12($fp)
         \\    lw $a0, 12($fp)
         \\    jal io_writeInt
+        \\    addi $sp, $fp, 4
+        \\    lw $fp, -4($sp)
         \\    jal exit
         \\
     ).diffFmt("{}", .{mips_prog});
@@ -337,6 +352,9 @@ test "associative addition" {
     try PreludeConclusionGenerator.generate(allocator, mips_prog);
     try snap(@src(),
         \\main:
+        \\    sw $fp, -4($sp)
+        \\    addi $fp, $sp, -4
+        \\    addi $sp, $sp, -12
         \\    li $t8, 1
         \\    li $t9, 2
         \\    add $t8, $t8, $t9
@@ -346,6 +364,8 @@ test "associative addition" {
         \\    sw $t8, 4($fp)
         \\    lw $a0, 4($fp)
         \\    jal io_writeInt
+        \\    addi $sp, $fp, 4
+        \\    lw $fp, -4($sp)
         \\    jal exit
         \\
     ).diffFmt("{}", .{mips_prog});
@@ -417,6 +437,9 @@ test "simple addi" {
     try PreludeConclusionGenerator.generate(allocator, mips_prog);
     try snap(@src(),
         \\main:
+        \\    sw $fp, -4($sp)
+        \\    addi $fp, $sp, -4
+        \\    addi $sp, $sp, -16
         \\    li $t8, 1
         \\    sw $t8, 0($fp)
         \\    lw $t8, 0($fp)
@@ -424,6 +447,8 @@ test "simple addi" {
         \\    lw $t9, 0($fp)
         \\    addi $t8, $t9, 1
         \\    sw $t8, 8($fp)
+        \\    addi $sp, $fp, 4
+        \\    lw $fp, -4($sp)
         \\    jal exit
         \\
     ).diffFmt("{}", .{mips_prog});

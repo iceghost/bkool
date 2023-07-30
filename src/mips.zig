@@ -3,6 +3,7 @@ const List = @import("List.zig");
 
 pub const Program = struct {
     instrs: Instr.Head,
+    var_homes: std.StringHashMapUnmanaged(usize) = .{},
 
     pub fn format(self: *const Program, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         var iter = self.instrs.constIterator();
@@ -79,7 +80,9 @@ pub const Reg = enum {
     t9,
     // arguments
     a0,
+    // special
     fp,
+    sp,
 
     pub fn format(self: Reg, comptime _: []const u8, _: std.fmt.FormatOptions, writer: anytype) !void {
         try writer.print("${s}", .{@tagName(self)});
