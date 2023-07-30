@@ -5,9 +5,10 @@ const ast = @import("ast.zig");
 const List = @import("List.zig");
 
 lexer: Lexer,
-current: Lexer.Token,
-next: Lexer.Token,
 allocator: std.mem.Allocator,
+current: Lexer.Token = undefined,
+next: Lexer.Token = undefined,
+str_pool: std.StringHashMapUnmanaged(void) = .{},
 
 const Error = error{
     OutOfMemory,
@@ -18,8 +19,6 @@ const Error = error{
 pub fn parse(src: []const u8, allocator: std.mem.Allocator) Error!*ast.Program {
     var parser = Parser{
         .lexer = Lexer{ .src = src },
-        .current = undefined,
-        .next = undefined,
         .allocator = allocator,
     };
     parser.next = parser.lexer.next();
@@ -243,7 +242,8 @@ fn parseVariable(self: *Parser, _: *ast.Expr, _: u8) Error!*ast.Expr {
     self.eatAndExpect(.identifier) catch unreachable;
     var name = self.current.identifier;
     var expr = try self.allocator.create(ast.Expr);
-    expr.kind = .{ .variable = name };
+    var res = try self.str_pool.getOrPut(self.allocator, name);
+    expr.kind = .{ .variable = res.key_ptr.* };
     return expr;
 }
 
