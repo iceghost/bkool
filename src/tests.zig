@@ -350,3 +350,81 @@ test "associative addition" {
         \\
     ).diffFmt("{}", .{mips_prog});
 }
+
+test "simple addi" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var allocator = arena.allocator();
+
+    const raw: []const u8 =
+        \\class Main {
+        \\    static void main() {
+        \\        int a = 1;
+        \\        int b = a;
+        \\        int c = a + 1;
+        \\    }
+        \\}
+    ;
+
+    var program = try Parser.parse(raw, allocator);
+    try snap(@src(),
+        \\class Main
+        \\    method main
+        \\        a: int = 1
+        \\        b: int = a
+        \\        c: int = (+ a 1)
+        \\
+    ).diffFmt("{}", .{program});
+
+    try ComplexOperandRemover.remove(allocator, program);
+    try snap(@src(),
+        \\class Main
+        \\    method main
+        \\        a: int = 1
+        \\        b: int = a
+        \\        c: int = (+ a 1)
+        \\
+    ).diffFmt("{}", .{program});
+
+    var mips_prog = try InstructionSelector.select(allocator, program);
+    try snap(@src(),
+        \\    movev a, 1
+        \\    movev b, a
+        \\    addv c, a, 1
+        \\
+    ).diffFmt("{}", .{mips_prog});
+
+    try HomeAssigner.assign(allocator, mips_prog);
+    try snap(@src(),
+        \\    movev 0($fp), 1
+        \\    movev 4($fp), 0($fp)
+        \\    addv 8($fp), 0($fp), 1
+        \\
+    ).diffFmt("{}", .{mips_prog});
+
+    try InstructionPatcher.patch(allocator, mips_prog);
+    try snap(@src(),
+        \\    li $t8, 1
+        \\    sw $t8, 0($fp)
+        \\    lw $t8, 0($fp)
+        \\    sw $t8, 4($fp)
+        \\    lw $t9, 0($fp)
+        \\    addi $t8, $t9, 1
+        \\    sw $t8, 8($fp)
+        \\
+    ).diffFmt("{}", .{mips_prog});
+
+    try PreludeConclusionGenerator.generate(allocator, mips_prog);
+    try snap(@src(),
+        \\main:
+        \\    li $t8, 1
+        \\    sw $t8, 0($fp)
+        \\    lw $t8, 0($fp)
+        \\    sw $t8, 4($fp)
+        \\    lw $t9, 0($fp)
+        \\    addi $t8, $t9, 1
+        \\    sw $t8, 8($fp)
+        \\    jal exit
+        \\
+    ).diffFmt("{}", .{mips_prog});
+}
