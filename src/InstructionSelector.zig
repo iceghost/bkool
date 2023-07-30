@@ -47,7 +47,10 @@ fn selectStmt(self: *Self, stmt: *ast.Stmt, instrs: *mips.Instr.Head) Error!void
 
             instr = try self.allocator.create(mips.Instr);
             instr.kind = .{
-                .jal = try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ call.receiver, call.method }),
+                .jal = .{
+                    .label = try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ call.receiver, call.method }),
+                    .arity = 1,
+                },
             };
             List.insertPrev(&instrs.node, &instr.node);
         },

@@ -29,6 +29,6 @@ pub fn generate(allocator: std.mem.Allocator, prog: *mips.Program) !void {
     List.insertPrev(&prog.instrs.node, &frame_deinit.node);
 
     var exit_call = try allocator.create(mips.Instr);
-    exit_call.kind = .{ .jal = "exit" };
+    exit_call.kind = .{ .jal = .{ .label = "exit" } };
     List.insertPrev(&prog.instrs.node, &exit_call.node);
 }

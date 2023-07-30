@@ -22,7 +22,7 @@ pub const Instr = struct {
         lw: struct { rd: Reg, src: Arg.Ref },
         add: struct { rd: Reg, rs: Reg, rt: Reg },
         addi: struct { rd: Reg, rs: Reg, imm: i32 },
-        jal: []const u8,
+        jal: struct { label: []const u8, arity: u8 = 0 },
 
         // non-patched instructions
         movev: [2]Arg,
@@ -41,7 +41,7 @@ pub const Instr = struct {
             .li => |args| try writer.print(" " ** 4 ++ "{s} {}, {}", .{ @tagName(self.kind), args.rd, args.imm }),
             .add => |args| try writer.print(" " ** 4 ++ "{s} {}, {}, {}", .{ @tagName(self.kind), args.rd, args.rs, args.rt }),
             .addi => |args| try writer.print(" " ** 4 ++ "{s} {}, {}, {}", .{ @tagName(self.kind), args.rd, args.rs, args.imm }),
-            .jal => |label| try writer.print(" " ** 4 ++ "jal {s}", .{label}),
+            .jal => |jal| try writer.print(" " ** 4 ++ "jal {s}", .{jal.label}),
             .movev => |args| try writer.print(" " ** 4 ++ "{s} {}, {}", .{ @tagName(self.kind), args[0], args[1] }),
             .addv => |args| try writer.print(" " ** 4 ++ "{s} {}, {}, {}", .{ @tagName(self.kind), args[0], args[1], args[2] }),
         }
