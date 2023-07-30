@@ -22,7 +22,7 @@ pub fn assign(allocator: std.mem.Allocator, program: *mips.Program) Error!void {
 
 fn assignInstr(self: *Self, instr: *mips.Instr) Error!void {
     switch (instr.kind) {
-        .pmove => |*args| {
+        .movev => |*args| {
             try self.put(&args[0]);
             try self.get(&args[1]);
         },

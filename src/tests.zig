@@ -51,14 +51,14 @@ test "simple program" {
 
     var mips_prog = try InstructionSelector.select(allocator, program);
     try snap(@src(),
-        \\    move $a0, 1
+        \\    movev $a0, 1
         \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
 
     try HomeAssigner.assign(allocator, mips_prog);
     try snap(@src(),
-        \\    move $a0, 1
+        \\    movev $a0, 1
         \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
@@ -119,18 +119,18 @@ test "simple variables" {
 
     var mips_prog = try InstructionSelector.select(allocator, program);
     try snap(@src(),
-        \\    move a, 8
-        \\    move b, 2
-        \\    move $a0, a
+        \\    movev a, 8
+        \\    movev b, 2
+        \\    movev $a0, a
         \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
 
     try HomeAssigner.assign(allocator, mips_prog);
     try snap(@src(),
-        \\    move 0($fp), 8
-        \\    move 4($fp), 2
-        \\    move $a0, 0($fp)
+        \\    movev 0($fp), 8
+        \\    movev 4($fp), 2
+        \\    movev $a0, 0($fp)
         \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
@@ -204,26 +204,26 @@ test "variables with addition" {
 
     var mips_prog = try InstructionSelector.select(allocator, program);
     try snap(@src(),
-        \\    move a, 8
-        \\    move b, 2
+        \\    movev a, 8
+        \\    movev b, 2
         \\    addv tmp$0, a, 1
-        \\    move $a0, tmp$0
+        \\    movev $a0, tmp$0
         \\    jal io_writeInt
         \\    addv tmp$1, b, a
-        \\    move $a0, tmp$1
+        \\    movev $a0, tmp$1
         \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
 
     try HomeAssigner.assign(allocator, mips_prog);
     try snap(@src(),
-        \\    move 0($fp), 8
-        \\    move 4($fp), 2
+        \\    movev 0($fp), 8
+        \\    movev 4($fp), 2
         \\    addv 8($fp), 0($fp), 1
-        \\    move $a0, 8($fp)
+        \\    movev $a0, 8($fp)
         \\    jal io_writeInt
         \\    addv 12($fp), 4($fp), 0($fp)
-        \\    move $a0, 12($fp)
+        \\    movev $a0, 12($fp)
         \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
@@ -306,7 +306,7 @@ test "associative addition" {
     try snap(@src(),
         \\    addv tmp$0, 1, 2
         \\    addv tmp$1, tmp$0, 3
-        \\    move $a0, tmp$1
+        \\    movev $a0, tmp$1
         \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});
@@ -315,7 +315,7 @@ test "associative addition" {
     try snap(@src(),
         \\    addv 0($fp), 1, 2
         \\    addv 4($fp), 0($fp), 3
-        \\    move $a0, 4($fp)
+        \\    movev $a0, 4($fp)
         \\    jal io_writeInt
         \\
     ).diffFmt("{}", .{mips_prog});

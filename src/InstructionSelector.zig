@@ -38,7 +38,7 @@ fn selectStmt(self: *Self, stmt: *ast.Stmt, instrs: *mips.Instr.Head) Error!void
             var it = call.args.constIterator();
             var arg = it.next().?;
             instr.kind = .{
-                .pmove = .{
+                .movev = .{
                     .{ .reg = mips.Reg.a0 },
                     try self.selectExpr(arg),
                 },
@@ -77,7 +77,7 @@ fn selectAssign(self: *Self, lhs: mips.Arg, rhs: *const ast.Expr, instrs: *mips.
                 } },
             };
         },
-        else => .{ .pmove = .{
+        else => .{ .movev = .{
             lhs,
             try self.selectExpr(rhs),
         } },

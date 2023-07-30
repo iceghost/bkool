@@ -28,7 +28,7 @@ fn patchInstr(self: *Self, instr: *mips.Instr) Error!void {
             try self.loadIfRef(&args[1], instr);
             try self.loadIfRef(&args[2], instr);
         },
-        .pmove => |*args| {
+        .movev => |*args| {
             try self.loadIfRef(&args[1], instr);
         },
         else => unreachable,
@@ -39,7 +39,7 @@ fn patchInstr(self: *Self, instr: *mips.Instr) Error!void {
     // store all dest
     switch (instr.kind) {
         .addv => |*args| try self.storeIfRef(&args[0], instr),
-        .pmove => |*args| try self.storeIfRef(&args[0], instr),
+        .movev => |*args| try self.storeIfRef(&args[0], instr),
         else => unreachable,
     }
 
@@ -94,7 +94,7 @@ fn devirtualize(_: *Self, instr: *mips.Instr) Error!bool {
             .imm => .{ .addi = .{ .rd = addv[0].reg, .rs = addv[1].reg, .imm = addv[2].imm } },
             else => return false,
         } else return false,
-        .pmove => |args| switch (args[0]) {
+        .movev => |args| switch (args[0]) {
             .reg => |rd| switch (args[1]) {
                 .reg => |rs| .{ .move = .{ .rd = rd, .rs = rs } },
                 .ref => |src| .{ .lw = .{ .rd = rd, .src = src } },
